@@ -1,4 +1,4 @@
-# Provision the Object Detection Service in AWS
+# AWS Project 
 
 **Never commit AWS credentials into your git repo!**
 

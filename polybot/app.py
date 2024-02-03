@@ -6,7 +6,7 @@ from bot import ObjectDetectionBot
 app = flask.Flask(__name__)
 
 
-# TODO load TELEGRAM_TOKEN value from Secret Manager
+# TODO load TELEGRAM_TOKEN value from Secretge Manar
 TELEGRAM_TOKEN = ...
 
 TELEGRAM_APP_URL = os.environ['TELEGRAM_APP_URL']
