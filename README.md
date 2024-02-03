@@ -10,7 +10,7 @@ In this project you will provision well architected Object Detection Service in 
 
 - You need a VPC with at least two public subnets.
 
-## Provision the `polybot` microservice
+## provision the `polybot` microservice
 
 ![](../.img/botaws2.png)
 
