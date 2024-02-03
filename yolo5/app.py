@@ -1,19 +1,26 @@
 import time
-from pathlib import Path
-from detect import run
-import yaml
-from loguru import logger
-import os
 import boto3
+import uuid
+import pymongo
+import requests
+import torch
+import json
+from PIL import Image
+from flask import Flask, request, jsonify
+from loguru import logger
+import boto3
+from bson import json_util
+import os
 
-images_bucket = os.environ['BUCKET_NAME']
-queue_name = os.environ['SQS_QUEUE_NAME']
-
-sqs_client = boto3.client('sqs', region_name='YOUR_REGION_HERE')
-
-with open("data/coco128.yaml", "r") as stream:
-    names = yaml.safe_load(stream)['names']
-
+#AWS
+images_bucket = "s3amiranivaug"
+queue_name = "AmiranIV-AWS-Queue"
+#AWS-CLIENTS
+sqs_client = boto3.client('sqs', region_name='eu-north-1')
+s3_client = boto3.client('s3')
+#Model IMPORTING
+model = torch.hub.load("ultralytics/yolov5", "yolov5s")
+model.eval()
 
 def consume():
     while True:
@@ -25,64 +32,86 @@ def consume():
 
             # Use the ReceiptHandle as a prediction UUID
             prediction_id = response['Messages'][0]['MessageId']
+            # print(message, prediction_id)
+            # Extract img_name and chat_id from message
+            img_name = f"{message}.jpeg"
+            chat_id = message
 
-            logger.info(f'prediction: {prediction_id}. start processing')
+            if img_name and chat_id:
+                # Download the image from S3
+                original_img_path = f"/app/{img_name}"
+                s3_key = f"{images_bucket}/{img_name}"
+                s3_client.download_file(images_bucket, img_name, original_img_path)
+                # print(f"img_name: {img_name}, chat_id: {chat_id}, prediction_Id: {prediction_id}")
+                time.sleep(4)
+                #PREDICTION#
+                # Load the image
+                img = Image.open(original_img_path)
+                # Run inference
+                results = model(img)
+                predicted_img_path = f'/app/{prediction_id}.jpeg'
+                r_img = results.render()  # returns a list with the images as np.array
+                img_with_boxes = r_img[0]  # image with boxes as np.array
+                img_with_boxes_pil = Image.fromarray(img_with_boxes)
+                img_with_boxes_pil.save(predicted_img_path)
+                s3_client.upload_file(predicted_img_path, images_bucket, f'{prediction_id}.jpeg')
+                time.sleep(3)
+                labels = []
 
-            # Receives a URL parameter representing the image to download from S3
-            img_name = ...  # TODO extract from `message`
-            chat_id = ...  # TODO extract from `message`
-            original_img_path = ...  # TODO download img_name from S3, store the local image path in original_img_path
+                for label in results.pred[0]:
+                    class_index = int(label[5])
+                    class_name = model.names[class_index]
+                    cx, cy, width, height = label[0:4]
+                    labels.append({
+                        "class": class_name,
+                        "cx": cx.item(),
+                        "cy": cy.item(),
+                        "width": width.item(),
+                        "height": height.item()
+                    })
 
-            logger.info(f'prediction: {prediction_id}/{original_img_path}. Download img completed')
-
-            # Predicts the objects in the image
-            run(
-                weights='yolov5s.pt',
-                data='data/coco128.yaml',
-                source=original_img_path,
-                project='static/data',
-                name=prediction_id,
-                save_txt=True
-            )
-
-            logger.info(f'prediction: {prediction_id}/{original_img_path}. done')
-
-            # This is the path for the predicted image with labels
-            # The predicted image typically includes bounding boxes drawn around the detected objects, along with class labels and possibly confidence scores.
-            predicted_img_path = Path(f'static/data/{prediction_id}/{original_img_path}')
-
-            # TODO Uploads the predicted image (predicted_img_path) to S3 (be careful not to override the original image).
-
-            # Parse prediction labels and create a summary
-            pred_summary_path = Path(f'static/data/{prediction_id}/labels/{original_img_path.split(".")[0]}.txt')
-            if pred_summary_path.exists():
-                with open(pred_summary_path) as f:
-                    labels = f.read().splitlines()
-                    labels = [line.split(' ') for line in labels]
-                    labels = [{
-                        'class': names[int(l[0])],
-                        'cx': float(l[1]),
-                        'cy': float(l[2]),
-                        'width': float(l[3]),
-                        'height': float(l[4]),
-                    } for l in labels]
-
-                logger.info(f'prediction: {prediction_id}/{original_img_path}. prediction summary:\n\n{labels}')
-
-                prediction_summary = {
-                    'prediction_id': prediction_id,
-                    'original_img_path': original_img_path,
-                    'predicted_img_path': predicted_img_path,
-                    'labels': labels,
-                    'time': time.time()
+                output_json = {
+                    "prediction_id": str(prediction_id),
+                    "original_img_path": original_img_path,
+                    "predicted_img_path": predicted_img_path,
+                    "labels": labels,
                 }
+                # Serialize the output_json using json_util
+                output_json_serialized = json.loads(json_util.dumps(output_json))
 
-                # TODO store the prediction_summary in a DynamoDB table
-                # TODO perform a GET request to Polybot to `/results` endpoint
+                # Save the JSON to a file
+                output_json_path = f'/app/output_{prediction_id}.json'
+                with open(output_json_path, 'w') as json_file:
+                    json.dump(output_json, json_file, indent=4)
 
-            # Delete the message from the queue as the job is considered as DONE
+
+                # Initialize a dictionary to store the class counts
+                class_counts = {}
+                # Iterate through the labels and count the occurrences of each class
+                for label in output_json['labels']:
+                    class_name = label['class']
+                    if class_name in class_counts:
+                        class_counts[class_name] += 1
+                    else:
+                        class_counts[class_name] = 1
+                message = ""
+                for class_name, count in class_counts.items():
+                    message += f"{class_name}: {count}\n"
+                    Files2DynamoDB = {
+                        "prediction_id": str(prediction_id),
+                        "chat_id": str(chat_id),
+                        "detected_objects": str(message)
+                    }
+                dynamodb = boto3.resource('dynamodb', region_name='eu-north-1')
+                dynamoTable = dynamodb.Table('AmiranIV-AWS')
+                dynamoTable.put_item(Item=Files2DynamoDB)
+                time.sleep(2)
+
+                url = f'<APPLICATION-LOAD-BALANCER-URL>'={prediction_id}'
+                requests.get(url=url)
+                time.sleep(7)
+
+            # Delete the message from the queue
             sqs_client.delete_message(QueueUrl=queue_name, ReceiptHandle=receipt_handle)
 
-
-if __name__ == "__main__":
-    consume()
+consume()
