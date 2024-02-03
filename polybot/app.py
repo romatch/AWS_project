@@ -7,7 +7,7 @@ import boto3
 app = flask.Flask(__name__)
 kms_key_id = <"YOURKMSID>
 # Create a KMS client
-kms_client = boto3.client('kms', region_name='eu-north-1')
+kms_client = boto3.client('kms', region_name='us-west-2')
 # Retrieve the key
 response = kms_client.describe_key(KeyId=kms_key_id)
 # The key details can be found in the 'KeyMetadata' field of the response
