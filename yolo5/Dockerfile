@@ -1,22 +1,10 @@
-# Use an official Python runtime as the base image
-FROM python:3.9-slim
+FROM ultralytics/yolov5:latest-cpu
+WORKDIR /usr/src/app
+RUN pip install --upgrade pip
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+RUN curl -L https://github.com/ultralytics/yolov5/releases/download/v6.1/yolov5s.pt -o yolov5s.pt
 
-# Upgrade pip
-RUN pip install --no-cache-dir --upgrade pip
+COPY . .
 
-# Install required system packages (including OpenGL and libgthread)
-RUN apt-get update && \
-    apt-get install -y libgl1-mesa-glx libglib2.0-0 && \
-    rm -rf /var/lib/apt/lists/*
-
-# Set the working directory inside the container
-WORKDIR /app
-
-# Copy the application code and requirements file into the container
-COPY . /app
-
-# Install the required dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Command to run your application
-CMD ["python3", "COMBINEDCODES.py"]
+CMD ["python3", "app.py"]
