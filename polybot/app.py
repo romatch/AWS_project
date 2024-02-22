@@ -3,21 +3,41 @@ from flask import request
 import os
 from bot import Bot, ImageProcessingBot
 import boto3
+from botocore.exceptions import ClientError
 
 app = flask.Flask(__name__)
-kms_key_id = <"YOURKMSID>
-# Create a KMS client
-kms_client = boto3.client('kms', region_name='us-west-2')
-# Retrieve the key
-response = kms_client.describe_key(KeyId=kms_key_id)
-# The key details can be found in the 'KeyMetadata' field of the response
-key_metadata = response['KeyMetadata']
-TOKEN = key_metadata['Description']
 
-# # TODO load TELEGRAM_TOKEN value from Secret Manager
-TELEGRAM_TOKEN = TOKEN
 
-TELEGRAM_APP_URL = <"APPLICATION LOAD BALANCER URL">
+def get_secret():
+    secret_name = "roman-secret-tg"
+    region_name = "us-west-2"
+
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+
+    secret = get_secret_value_response['SecretString']
+    return json.loads(secret)
+
+
+# load TELEGRAM_TOKEN value from Secret Manager
+secrets = get_secret()
+TELEGRAM_TOKEN = secrets["TELEGRAM_TOKEN"]  # os.environ['TELEGRAM_TOKEN']
+
+TELEGRAM_APP_URL = secrets["TELEGRAM_APP_URL"]  # os.environ['TELEGRAM_APP_URL']
+
 
 @app.route('/', methods=['GET'])
 def index():

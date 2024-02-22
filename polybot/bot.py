@@ -63,7 +63,8 @@ class Bot:
     def handle_message(self, msg):
         """Bot Main message handler"""
         logger.info(f'Incoming message: {msg}')
-        self.send_text(msg['chat']['id'], f'Your original message: {msg["text"]}')
+        if 'text' in msg:
+            self.send_text(msg['chat']['id'], f'We upload picture here,but did you say?: {msg["text"]}')
 
 
 class ImageProcessingBot(Bot):
@@ -80,8 +81,8 @@ class ImageProcessingBot(Bot):
             # If the message contains a photo, check if it also has a caption
             if "caption" in msg:
                 caption = msg["caption"]
-                if "concat" in caption.lower():
-                    self.process_image(msg)
+                if "blur" in caption.lower():
+                    self.process_image_blur(msg)
                 if "contour" in caption.lower():
                     self.process_image_contur(msg)
                 if "rotate" in caption.lower():
@@ -157,6 +158,28 @@ class ImageProcessingBot(Bot):
 
         self.processing_completed = True
 
+    def process_image_blur(self, msg):
+        self.processing_completed = False
+        self.send_text(msg['chat']['id'], text=f'A few moments later =)')
+
+        # Download the two photos sent by the user
+        image_path = self.download_user_photo(msg)
+
+        # Create two different Img objects from the downloaded images
+        image = Img(image_path)
+
+        # Process the image using your custom methods (e.g., apply filter)
+        image.blur()  # Blurs the image
+
+        # Save the processed image to the specified folder
+        processed_image_path = image.save_img()
+
+        if processed_image_path is not None:
+            # Send the processed image back to the user
+            self.send_text(msg['chat']['id'], text=f'Done!\nHere you go:')
+            self.send_photo(msg['chat']['id'], processed_image_path)
+
+        self.processing_completed = True
 
     def upload_2_S3(self, msg):
         self.processing_completed = False
