@@ -1,7 +1,6 @@
 import json
 import time
 from pathlib import Path
-
 import requests
 from detect import run
 import yaml
@@ -12,7 +11,6 @@ from decimal import Decimal
 
 images_bucket = 'romans-s3-bucket'
 queue_name = 'roman-yolo5'
-
 sqs_client = boto3.client('sqs', region_name='us-west-2')
 
 with open("data/coco128.yaml", "r") as stream:
