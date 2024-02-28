@@ -110,7 +110,7 @@ def consume():
                 # TODO store the prediction_summary in a DynamoDB table
 
                 dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
-                table_name = 'roma-yolo5'
+                table_name = 'Roman-AWS'
                 table = dynamodb.Table(table_name)
                 table.put_item(Item=prediction_summary)
 

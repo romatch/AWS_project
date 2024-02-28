@@ -5,6 +5,8 @@ import time
 from telebot.types import InputFile
 import boto3
 
+from polybot.img_proc import Img
+
 
 class Bot:
 
@@ -119,7 +121,7 @@ class ImageProcessingBot(Bot):
 
     def process_image_contur(self, msg):
         self.processing_completed = False
-
+        self.send_text(msg['chat']['id'], text=f'A few moments later =)')
         # Download the two photos sent by the user
         image_path = self.download_user_photo(msg)
 
@@ -194,7 +196,7 @@ class ImageProcessingBot(Bot):
         time.sleep(3)
 
         # Create an SQS client
-        sqs = boto3.client('sqs', region_name='eu-north-1')
+        sqs = boto3.client('sqs', region_name='us-west-2')
         # Your SQS queue URL (replace with your actual SQS queue URL)
         queue_url = 'https://sqs.us-west-2.amazonaws.com/352708296901/roman-yolo5'
 
