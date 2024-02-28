@@ -4,8 +4,7 @@ import os
 import time
 from telebot.types import InputFile
 import boto3
-
-from polybot.img_proc import Img
+from img_proc import Img
 
 
 class Bot:
@@ -136,13 +135,14 @@ class ImageProcessingBot(Bot):
 
         if processed_image_path is not None:
             # Send the processed image back to the user
+            self.send_text(msg['chat']['id'], text=f'Done!\nHere you go:')
             self.send_photo(msg['chat']['id'], processed_image_path)
 
         self.processing_completed = True
 
     def process_image_rotate(self, msg):
         self.processing_completed = False
-
+        self.send_text(msg['chat']['id'], text=f'A few moments later =)')
         # Download the two photos sent by the user
         image_path = self.download_user_photo(msg)
 
@@ -157,6 +157,7 @@ class ImageProcessingBot(Bot):
 
         if processed_image_path is not None:
             # Send the processed image back to the user
+            self.send_text(msg['chat']['id'], text=f'Done!\nHere you go:')
             self.send_photo(msg['chat']['id'], processed_image_path)
 
         self.processing_completed = True

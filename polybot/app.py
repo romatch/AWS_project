@@ -1,7 +1,7 @@
 import flask
 from flask import request
 import os
-from bot import Bot, ImageProcessingBot
+from bot import ImageProcessingBot
 import boto3
 from botocore.exceptions import ClientError
 import json
