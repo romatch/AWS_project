@@ -5,6 +5,7 @@ import time
 from telebot.types import InputFile
 import boto3
 from img_proc import Img
+import json
 
 
 class Bot:
@@ -89,6 +90,8 @@ class ImageProcessingBot(Bot):
                     self.process_image_contur(msg)
                 if "rotate" in caption.lower():
                     self.process_image_rotate(msg)
+                if "predict" in caption.lower():
+                    self.upload_2_S3(msg)
 
             else:
                 logger.info("Received photo without a caption.")
@@ -192,8 +195,9 @@ class ImageProcessingBot(Bot):
         s3_client = boto3.client('s3')
         images_bucket = 'romans-s3-bucket'
         s3_key = f'{msg["chat"]["id"]}.jpeg'
+        logger.info(f'before-upload')
         s3_client.upload_file(image_path, images_bucket, s3_key)
-
+        logger.info(f'upload-good')
         time.sleep(3)
 
         # Create an SQS client
@@ -201,18 +205,14 @@ class ImageProcessingBot(Bot):
         # Your SQS queue URL (replace with your actual SQS queue URL)
         queue_url = 'https://sqs.us-west-2.amazonaws.com/352708296901/roman-yolo5'
 
+        chat_id = str(msg["chat"]["id"])
+        msg_dict = {"chat_id": chat_id, "s3_key": s3_key}
         # Create a message with a custom message ID
         message_body = str(msg["chat"]["id"])
         message_id = s3_key
         response = sqs.send_message(
             QueueUrl=queue_url,
-            MessageBody=message_body,
-            MessageAttributes={
-                'CustomMessageID': {
-                    'DataType': 'String',
-                    'StringValue': message_id
-                }
-            }
+            MessageBody=json.dumps(msg_dict)
         )
         # Check for a successful response (optional)
         if response['ResponseMetadata']['HTTPStatusCode'] == 200:
