@@ -217,6 +217,5 @@ class ImageProcessingBot(Bot):
         # Check for a successful response (optional)
         if response['ResponseMetadata']['HTTPStatusCode'] == 200:
             print(f"Message with ID {message_id} sent successfully.")
-        time.sleep(3)
-        self.send_text(msg['chat']['id'], f'Please wait your image is being processed...')
+        self.send_text(msg['chat']['id'], f'Preparing the Prediction Please wait...')
         self.processing_completed = True
